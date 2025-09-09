@@ -11,10 +11,10 @@ import express from "express";
 // src/models/reservation.model.ts
 import mongoose, { Schema } from "mongoose";
 var ReservationStatus = /* @__PURE__ */ ((ReservationStatus2) => {
-  ReservationStatus2["REQUESTED"] = "Requested";
-  ReservationStatus2["APPROVED"] = "Approved";
-  ReservationStatus2["CANCELLED"] = "Cancelled";
-  ReservationStatus2["COMPLETED"] = "Completed";
+  ReservationStatus2["REQUESTED"] = "requested";
+  ReservationStatus2["CONFIRMED"] = "confirmed";
+  ReservationStatus2["PENDING"] = "pending";
+  ReservationStatus2["CANCELLED"] = "cancelled";
   return ReservationStatus2;
 })(ReservationStatus || {});
 var ReservationSchema = new Schema({
@@ -50,8 +50,8 @@ var ReservationSchema = new Schema({
   },
   status: {
     type: String,
-    enum: Object.values(ReservationStatus),
-    default: "Requested" /* REQUESTED */
+    enum: ["requested", "confirmed", "pending", "cancelled"],
+    default: "requested" /* REQUESTED */
   }
 }, {
   timestamps: true
@@ -132,7 +132,7 @@ var cancelReservation = async (req, res) => {
   try {
     const reservation = await reservation_model_default.findByIdAndUpdate(
       req.params.id,
-      { status: "Cancelled" /* CANCELLED */ },
+      { status: "cancelled" /* CANCELLED */ },
       { new: true }
     );
     if (!reservation) {

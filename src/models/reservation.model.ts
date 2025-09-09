@@ -2,10 +2,10 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 // 定义预订状态枚举
 export enum ReservationStatus {
-  REQUESTED = 'Requested',
-  APPROVED = 'Approved',
-  CANCELLED = 'Cancelled',
-  COMPLETED = 'Completed'
+  REQUESTED = 'requested',
+  CONFIRMED = 'confirmed',
+  PENDING = 'pending',
+  CANCELLED = 'cancelled'
 }
 
 // 定义预订接口
@@ -56,7 +56,7 @@ const ReservationSchema: Schema = new Schema({
   },
   status: {
     type: String,
-    enum: Object.values(ReservationStatus),
+    enum: ['requested', 'confirmed', 'pending', 'cancelled'],
     default: ReservationStatus.REQUESTED
   }
 }, {
