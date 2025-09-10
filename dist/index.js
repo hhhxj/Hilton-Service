@@ -50,7 +50,7 @@ var ReservationSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ["requested", "confirmed", "pending", "cancelled"],
+    enum: Object.values(ReservationStatus),
     default: "requested" /* REQUESTED */
   }
 }, {
@@ -191,6 +191,132 @@ router.put("/employee/:id", updateReservation);
 var reservation_routes_default = router;
 
 // src/index.ts
+import { ApolloServer } from "@apollo/server";
+import { expressMiddleware } from "@apollo/server/express4";
+import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
+
+// src/graphql/schema.ts
+import gql from "graphql-tag";
+var typeDefs = gql`
+  enum ReservationStatus {
+    requested
+    confirmed
+    pending
+    cancelled
+  }
+
+  type ContactInfo {
+    email: String!
+    phone: String!
+  }
+
+  type Reservation {
+    id: ID!
+    guestName: String!
+    contactInfo: ContactInfo!
+    arrivalTime: String!
+    tableSize: Int!
+    status: ReservationStatus!
+    specialRequests: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input ContactInfoInput {
+    email: String!
+    phone: String!
+  }
+
+  input ReservationInput {
+    guestName: String!
+    contactInfo: ContactInfoInput!
+    arrivalTime: String!
+    tableSize: Int!
+    status: ReservationStatus!
+    specialRequests: String
+  }
+
+  type Query {
+    getAllReservations: [Reservation!]!
+    getReservationById(id: ID!): Reservation
+  }
+
+  type Mutation {
+    createReservation(input: ReservationInput!): Reservation!
+    updateReservation(id: ID!, input: ReservationInput!): Reservation
+    cancelReservation(id: ID!): Reservation
+  }
+`;
+var resolvers = {
+  Query: {
+    getAllReservations: async () => {
+      return new Promise((resolve, reject) => {
+        getAllReservations(
+          { query: {} },
+          {
+            status: (code) => ({
+              json: (data) => {
+                if (code === 200) {
+                  resolve(data || []);
+                } else {
+                  reject(data);
+                }
+              }
+            })
+          }
+        );
+      }).catch(() => []);
+    },
+    getReservationById: async (_, { id }) => {
+      return new Promise((resolve, reject) => {
+        getReservationById(
+          { params: { id } },
+          {
+            status: (code, data) => code === 200 ? resolve(data) : reject(data),
+            json: (data) => data
+          }
+        );
+      });
+    }
+  },
+  Mutation: {
+    createReservation: async (_, { input }) => {
+      return new Promise((resolve, reject) => {
+        createReservation(
+          { body: input },
+          {
+            status: (code, data) => code === 201 ? resolve(data) : reject(data),
+            json: (data) => data
+          }
+        );
+      });
+    },
+    updateReservation: async (_, { id, input }) => {
+      return new Promise((resolve, reject) => {
+        updateReservation(
+          { params: { id }, body: input },
+          {
+            status: (code, data) => code === 200 ? resolve(data) : reject(data),
+            json: (data) => data
+          }
+        );
+      });
+    },
+    cancelReservation: async (_, { id }) => {
+      return new Promise((resolve, reject) => {
+        cancelReservation(
+          { params: { id } },
+          {
+            status: (code, data) => code === 200 ? resolve(data) : reject(data),
+            json: (data) => data
+          }
+        );
+      });
+    }
+  }
+};
+
+// src/index.ts
 dotenv.config();
 var app = express2();
 var PORT = process.env.PORT || 3e3;
@@ -212,8 +338,17 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === "development" ? err.message : void 0
   });
 });
-mongoose2.connect(process.env.MONGODB_URI, { authSource: "admin" }).then(() => {
+mongoose2.connect(process.env.MONGODB_URI, { authSource: "admin" }).then(async () => {
   console.log("\u6210\u529F\u8FDE\u63A5\u5230MongoDB\u6570\u636E\u5E93");
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    introspection: true,
+    plugins: [ApolloServerPluginLandingPageLocalDefault()]
+  });
+  await server.start();
+  app.use("/graphql", expressMiddleware(server));
+  console.log(`GraphQL server running at http://localhost:${PORT}/graphql`);
   mongoose2.connection.on("error", (err) => {
     console.error("MongoDB\u8FDE\u63A5\u9519\u8BEF(\u8FD0\u884C\u65F6):", err);
   });

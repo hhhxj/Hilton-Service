@@ -56,7 +56,7 @@ const ReservationSchema: Schema = new Schema({
   },
   status: {
     type: String,
-    enum: ['requested', 'confirmed', 'pending', 'cancelled'],
+    enum: Object.values(ReservationStatus),
     default: ReservationStatus.REQUESTED
   }
 }, {

@@ -1,15 +1,20 @@
 dotenv.config();
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import reservationRoutes from './routes/reservation.routes.ts';
 
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@apollo/server/express4';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { typeDefs, resolvers } from './graphql/schema.js';
+
 
 
 // 创建Express应用
-const app = express();
+const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
 // 中间件
@@ -42,8 +47,18 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // 连接MongoDB并启动服务器
 mongoose.connect(process.env.MONGODB_URI!, { authSource: 'admin' })
-  .then(() => {
+  .then(async () => {
     console.log('成功连接到MongoDB数据库');
+    // 启动Apollo Server
+    const server = new ApolloServer({
+      typeDefs,
+      resolvers,
+      introspection: true,
+      plugins: [ApolloServerPluginLandingPageLocalDefault()]
+    });
+    await server.start();
+    app.use('/graphql', expressMiddleware(server));
+    console.log(`GraphQL server running at http://localhost:${PORT}/graphql`);
     // 监听MongoDB连接错误
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB连接错误(运行时):', err);
